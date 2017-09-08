@@ -504,6 +504,23 @@ class NodeGraphEditor
     static Style& GetStyle() {return style;}
     /*mutable ImGuiColorEditMode colorEditMode;*/
     float nodesBaseWidth;
+	enum class DragEnum {
+		None,
+		Node,
+		Zoom,
+		Window
+	};
+	DragEnum m_dragStatus = DragEnum::None;
+	bool PrevMouseDown[5] = { false, false, false, false, false };
+	bool PrevHovered = false;
+	void updateDragStatus(bool isHovered, bool isActive, bool initialClick, const DragEnum e) {
+		if (isHovered && initialClick && isActive && m_dragStatus == DragEnum::None) {
+			m_dragStatus = e;
+		}
+		if (!isActive && m_dragStatus == e) {
+			m_dragStatus = DragEnum::None;
+		}
+	}
 
     NodeGraphEditor(bool show_grid_= true,bool show_connection_names_=true,bool _allowOnlyOneLinkPerInputSlot=true,bool _avoidCircularLinkLoopsInOut=true,bool init_in_ctr=false) {
         scrolling = ImVec2(0.0f, 0.0f);

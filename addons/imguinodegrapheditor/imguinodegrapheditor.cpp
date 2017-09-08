@@ -729,19 +729,39 @@ void NodeGraphEditor::render()
                 g.FontBaseSize = io.FontGlobalScale * g.Font->Scale * g.Font->FontSize;
                 g.FontSize = window->CalcFontSize();
 
-                if (IsWindowHovered() && (io.MouseWheel || io.MouseClicked[2]))   {
-                    // Zoom / Scale window
-                    float new_font_scale = ImClamp(fontScaleToTrack + g.IO.MouseWheel * 0.075f, 0.50f, 2.50f);
-                    //if (io.MouseClicked[2]) new_font_scale = 1.f;   // MMB = RESET ZOOM
-                    float scale = new_font_scale/fontScaleToTrack;
-                    if (scale!=1)	{
-                        scrolling=scrolling*scale;
-                        // Set the correct font scale (3 lines), and store it
-                        fontScaleStored = fontScaleToTrack = new_font_scale;
-                        g.FontBaseSize = io.FontGlobalScale * g.Font->Scale * g.Font->FontSize;
-                        g.FontSize = window->CalcFontSize();
-                    }
-                }
+				bool isHovered = g.HoveredWindow == window;
+
+				bool initialClick = PrevMouseDown[2] != io.MouseClicked[2];
+				updateDragStatus(isHovered, io.MouseWheel != 0, true, DragEnum::Zoom);
+				updateDragStatus(isHovered, isMouseDraggingForScrolling, initialClick, DragEnum::Window);
+
+				switch (m_dragStatus) {
+				case (DragEnum::None):
+					break;
+				case (DragEnum::Zoom):
+				{
+					// Zoom / Scale window
+					float new_font_scale = ImClamp(fontScaleToTrack + g.IO.MouseWheel * 0.075f, 0.50f, 2.50f);
+					//if (io.MouseClicked[2]) new_font_scale = 1.f;   // MMB = RESET ZOOM
+					float scale = new_font_scale / fontScaleToTrack;
+					if (scale != 1) {
+						scrolling = scrolling*scale;
+						// Set the correct font scale (3 lines), and store it
+						fontScaleStored = fontScaleToTrack = new_font_scale;
+						g.FontBaseSize = io.FontGlobalScale * g.Font->Scale * g.Font->FontSize;
+						g.FontSize = window->CalcFontSize();
+					}
+					break;
+				}
+				case (DragEnum::Window):
+					scrolling = scrolling - io.MouseDelta;
+					ImGui::SetMouseCursor(ImGuiMouseCursor_Move);
+					break;
+				default:
+					break;
+				}
+				PrevHovered = isHovered;
+				for (size_t i = 0; i < 5; ++i) PrevMouseDown[i] = g.IO.MouseClicked[i];
             }
 
             // fixes zooming just a bit
