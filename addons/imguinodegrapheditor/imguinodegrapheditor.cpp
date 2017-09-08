@@ -1,4 +1,5 @@
 //- Common Code For All Addons needed just to ease inclusion as separate files in user code ----------------------
+#include <windows.h>
 #include <imgui.h>
 #undef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -728,10 +729,10 @@ void NodeGraphEditor::render()
                 g.FontBaseSize = io.FontGlobalScale * g.Font->Scale * g.Font->FontSize;
                 g.FontSize = window->CalcFontSize();
 
-                if (io.KeyCtrl && ImGui::GetCurrentWindow()==GImGui->HoveredWindow && (io.MouseWheel || io.MouseClicked[2]))   {
+                if (IsWindowHovered() && (io.MouseWheel || io.MouseClicked[2]))   {
                     // Zoom / Scale window
                     float new_font_scale = ImClamp(fontScaleToTrack + g.IO.MouseWheel * 0.075f, 0.50f, 2.50f);
-                    if (io.MouseClicked[2]) new_font_scale = 1.f;   // MMB = RESET ZOOM
+                    //if (io.MouseClicked[2]) new_font_scale = 1.f;   // MMB = RESET ZOOM
                     float scale = new_font_scale/fontScaleToTrack;
                     if (scale!=1)	{
                         scrolling=scrolling*scale;
@@ -3077,8 +3078,7 @@ static Node* MyNodeFactory(int nt,const ImVec2& pos,const NodeGraphEditor& /*nge
     }
     return NULL;
 }
-void TestNodeGraphEditor()  {
-    static ImGui::NodeGraphEditor nge;
+void TestNodeGraphEditor(ImGui::NodeGraphEditor & nge)  {
     if (nge.isInited())	{
         // This adds entries to the "add node" context menu
         nge.registerNodeTypes(MyNodeTypeNames,MNT_COUNT,MyNodeFactory,NULL,-1); // last 2 args can be used to add only a subset of nodes (or to sort their order inside the context menu)

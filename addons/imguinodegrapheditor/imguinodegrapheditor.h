@@ -787,7 +787,7 @@ class NodeGraphEditor
 
 
 #ifndef IMGUINODEGRAPHEDITOR_NOTESTDEMO
-IMGUI_API void TestNodeGraphEditor();
+void TestNodeGraphEditor(ImGui::NodeGraphEditor & nge);
 #endif //IMGUINODEGRAPHEDITOR_NOTESTDEMO
 
 
