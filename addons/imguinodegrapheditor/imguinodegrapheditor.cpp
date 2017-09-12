@@ -313,6 +313,16 @@ bool NodeGraphEditor::Style::Edit(NodeGraphEditor::Style& s) {
     return changed;
 }
 
+void NodeGraphEditor::updateDragStatus(bool isHovered, bool isActive, bool initialClick, const DragEnum e)
+{
+	if (isHovered && initialClick && isActive && m_dragStatus == DragEnum::None) {
+		m_dragStatus = e;
+	}
+	if (!isActive && m_dragStatus == e) {
+		m_dragStatus = DragEnum::None;
+	}
+}
+
 #if (defined(IMGUIHELPER_H_) && !defined(NO_IMGUIHELPER_SERIALIZATION))
 #ifndef NO_IMGUIHELPER_SERIALIZATION_SAVE
 #include "../imguihelper/imguihelper.h"
@@ -2658,6 +2668,9 @@ bool NodeGraphEditor::load(ImGuiHelper::Deserializer& d, const char ** pOptional
     //--------------------------------------------
     //return true;
 }
+
+
+
 #       endif //NO_IMGUIHELPER_SERIALIZATION_LOAD
 #       endif //NO_IMGUIHELPER_SERIALIZATION
 //--------------------------------------------------------------------------------
