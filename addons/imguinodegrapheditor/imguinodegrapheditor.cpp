@@ -693,7 +693,7 @@ void NodeGraphEditor::render()
 
             ImGui::Checkbox("Show connection names.", &show_connection_names);
             //if (io.FontAllowUserScaling)
-            {ImGui::SameLine(0,15);ImGui::Text("Use CTRL+MW to zoom. Scroll with MMB.");}
+            {ImGui::SameLine(0,15);ImGui::Text("Use MouseWheel to zoom. Scroll with MMB.");}
             ImGui::SameLine(ImGui::GetWindowWidth()-120);
             ImGui::Checkbox("Show grid", &show_grid);
             ImGui::Text("%s","Double-click LMB on slots to remove their links (or SHIFT+LMB on links).");
@@ -751,7 +751,8 @@ void NodeGraphEditor::render()
 				case (DragEnum::Zoom):
 				{
 					// Zoom / Scale window
-					float new_font_scale = ImClamp(fontScaleToTrack + g.IO.MouseWheel * 0.075f, 0.50f, 2.50f);
+					const float MAX_SCALE = 10.f;
+					float new_font_scale = ImClamp(fontScaleToTrack * (1 + g.IO.MouseWheel * 0.075f), 1.f/MAX_SCALE, MAX_SCALE);
 					//if (io.MouseClicked[2]) new_font_scale = 1.f;   // MMB = RESET ZOOM
 					float scale = new_font_scale / fontScaleToTrack;
 					if (scale != 1) {
