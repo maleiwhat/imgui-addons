@@ -74,6 +74,8 @@ SOFTWARE.
 #ifndef IMGUI_API
 #include <imgui.h>
 #endif //IMGUI_API
+
+#include <string>
  
 typedef enum ImGuiDockSlot {
     ImGuiDockSlot_Left=0,
@@ -96,6 +98,11 @@ IMGUI_API bool BeginDock(const char* label, bool* opened = NULL, ImGuiWindowFlag
 IMGUI_API void EndDock();
 IMGUI_API void SetDockActive();
 IMGUI_API void DockDebugWindow();
+IMGUI_API bool isDockActive();
+IMGUI_API bool isMouseHoveringDock();
+IMGUI_API void getPos(int &x, int &y);
+IMGUI_API std::string toStringJson();
+IMGUI_API void fromStringJson(const std::string &s);
 
 // Ported from the original "Lua binding" code
 #if (defined(IMGUIHELPER_H_) && !defined(NO_IMGUIHELPER_SERIALIZATION))

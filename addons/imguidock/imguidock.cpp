@@ -27,6 +27,9 @@ SOFTWARE.
 
 //- Common Code For All Addons needed just to ease inclusion as separate files in user code ----------------------
 #include <imgui.h>
+#include <functional>
+#include <algorithm>
+#include <jsoncpp/json.h>
 #undef IMGUI_DEFINE_PLACEMENT_NEW
 #define IMGUI_DEFINE_PLACEMENT_NEW
 #undef IMGUI_DEFINE_MATH_OPERATORS
@@ -62,7 +65,7 @@ struct DockContext
     struct Dock
     {
         Dock()
-            : label(NULL)
+            : label(ImStrdup(""))
             , id(0)
             , next_tab(NULL)
             , prev_tab(NULL)
@@ -223,6 +226,7 @@ struct DockContext
         char location[16];
         bool opened;
         bool first;
+		uint32_t ptrId = 0xbeefbeef;
     };
 
 
@@ -1195,6 +1199,195 @@ struct DockContext
         IM_ASSERT(false);
         return -1;
     }
+
+	bool isMouseHoveringDock() {
+		if (!ImGui::IsMouseHoveringWindow()) return false;
+		for (int i = 0; i < m_docks.size(); ++i) {
+			if (m_docks[i]->status == Status_Dragged)
+				return false;
+		}
+		return  true;
+	}
+
+	bool isDockActive()
+	{
+		return m_current && m_current->active;
+	}
+
+	void getPos(int &x, int &y) {
+		if (!m_current) return;
+		switch (m_current->status) {
+		case Status_Docked:
+			x = m_current->pos.x;
+			y = m_current->pos.y;
+			break;
+		case Status_Float:
+		{
+			auto pos = m_current->pos;
+			x = 0;
+			y = 0;
+			break;
+		}
+		}
+	}
+
+	static bool getValue(Json::Value &value, float &output, size_t N) { if (value.isNull()) return false;  output = value.asFloat(); return true; }
+	static bool getValue(Json::Value &value, int &output, size_t N) { if (value.isNull()) return false; output = value.asInt(); return true; }
+	static bool getValue(Json::Value &value, uint32_t &output, size_t N) { if (value.isNull()) return false; output = value.asUInt(); return true; }
+	static bool getValue(Json::Value &value, uint64_t &output, size_t N) { if (value.isNull()) return false; output = value.asUInt64(); return true; }
+	static bool getValue(Json::Value &value, bool &output, size_t N) { if (value.isNull()) return false; output = value.asBool(); return true; }
+	static bool getValue(Json::Value &value, std::string & output, size_t N) {
+		if (value.isNull()) return false;
+		output = value.asString();
+		return true;
+	}
+	static bool getValue(Json::Value &value, char * output, size_t N) {
+		if (value.isNull()) { return false;	}
+		std::string s = value.asString();
+		if (s.size()) {
+			output = ImStrdup(s.c_str());
+		}
+		//strncpy(output, s.c_str(), std::min(s.size(), N));
+		return true;
+	}
+
+	template <typename U>
+	struct writeCast {
+		template <typename F, typename T>
+		void operator()(F f, const std::string &name, T& value)
+		{
+			U v = static_cast<U>(value);
+			f(name, v);
+			value = static_cast<T>(v);
+		}
+	};
+
+	template <typename F, typename G>
+	void serialize(Dock &dock, F f, G g)
+	{
+		f("ptrId", dock.ptrId);
+		f("id", dock.id);
+		f("label", dock.label);
+		f("x", dock.pos.x);
+		f("y", dock.pos.y);
+		f("size_x", dock.size.x);
+		f("size_y", dock.size.y);
+		f("active", dock.active);
+		f("opened", dock.opened);
+		f("first", dock.first);
+		f("location", dock.location, sizeof(dock.location));
+		writeCast<int>{}(f, "status", dock.status);
+
+		g("next", &dock.next_tab);
+		g("prev", &dock.prev_tab);
+		g("child0", &dock.children[0]);
+		g("child1", &dock.children[1]);
+		g("parent", &dock.parent);
+	}
+
+	void cleanDocks()
+	{
+	restart:
+		for (int i = 0, c = m_docks.size(); i < c; ++i)
+		{
+			Dock& dock = *m_docks[i];
+			if (dock.last_frame == 0 && dock.status != Status_Float && !dock.children[0])
+			{
+				fillLocation(*m_docks[i]);
+				doUndock(*m_docks[i]);
+				m_docks[i]->status = Status_Float;
+				goto restart;
+			}
+		}
+	}
+
+	std::string toStringJson()
+	{
+		cleanDocks();
+		Json::Value tree(Json::arrayValue);
+		const int N = m_docks.size();
+
+		for (auto &dock : m_docks) {
+			dock->ptrId = std::hash<void*>()(&dock);
+		}
+
+		std::function<void(Dock*, Dock*)> setParent = [&setParent](Dock * parent, Dock * child)
+		{
+			if (child) {
+				child->parent = parent;
+				setParent(child, nullptr);;
+			}
+			else {
+				for (int i = 0; i < 2; ++i) {
+					if (parent->children[i]) setParent(parent, parent->children[i]);
+				}
+			}
+		};
+
+		for (int i = 0; i < N; ++i) {
+			//setParent(m_docks[i], nullptr);
+		}
+		for (int i = 0; i < N; ++i) {
+			Json::Value thisNode;
+			auto f = [&thisNode](const std::string &s, auto &value, size_t N = 0) {
+				thisNode[s] = Json::Value(value);
+				return true; // write always works
+			};
+			auto g = [&f](const std::string &name, Dock ** d) -> bool {
+				if (!*d) return false;
+				auto id = (*d)->ptrId;
+				return f(name, id);
+			};
+
+			auto &m_dock = *m_docks[i];
+			auto m_hash = ImHash(m_dock.label, 0);
+			serialize(m_dock, f, g);
+			tree.append(thisNode);
+		}
+		std::stringstream ss;
+		ss << tree;
+		return ss.str();
+	}
+
+	void fromStringJson(const std::string &s)
+	{
+		Json::Reader reader;
+		Json::Value tree;
+		reader.parse(s, tree);
+		for (int i = 0; i < m_docks.size(); ++i)
+		{
+			m_docks[i]->~Dock();
+			MemFree(m_docks[i]);
+		}
+		m_docks.clear();
+
+		const int N = tree.size();
+		m_docks.resize(N);
+		for (size_t i = 0; i < N; ++i) {
+			Dock* new_dock = (Dock*)MemAlloc(sizeof(Dock));
+			m_docks[i] = IM_PLACEMENT_NEW(new_dock) Dock();
+			getValue(tree.get(i, {}).get("ptrId", {}), m_docks[i]->ptrId, 0);
+			new_dock->last_frame = 0;
+		}
+		for (size_t i = 0; i < N; ++i) {
+			auto thisNode = tree.get(i, {});
+			auto f = [&thisNode](const std::string &s, auto &value, size_t N = 0) -> bool {
+				Json::Value val = thisNode[s];
+				return getValue(val, value, N == 0 ? sizeof(value) : N);
+			};
+			auto g = [this, &f](const std::string &name, Dock ** d) {
+				decltype((**d).ptrId) id;
+				if (!f(name, id)) return;
+				*d = nullptr;
+				for (size_t i = 0; i < m_docks.size() && !*d; ++i) {
+					if (m_docks[i]->ptrId == id) {
+						*d = m_docks[i];
+					}
+				}
+			};
+			serialize(*m_docks[i], f, g);
+		}
+	}
 };
 
 
@@ -1247,6 +1440,35 @@ void DockDebugWindow()
 {
     g_dock.debugWindow();
 }
+
+
+IMGUI_API bool isMouseHoveringDock()
+{
+	return g_dock.isMouseHoveringDock();
+}
+
+
+IMGUI_API bool isDockActive()
+{
+	return g_dock.isDockActive();
+}
+
+
+IMGUI_API std::string toStringJson()
+{
+	return g_dock.toStringJson();
+}
+
+IMGUI_API void fromStringJson(const std::string &s)
+{
+	g_dock.fromStringJson(s);
+}
+
+IMGUI_API void getPos(int &x, int &y)
+{
+	g_dock.getPos(x, y);
+}
+
 
 
 #if (defined(IMGUIHELPER_H_) && !defined(NO_IMGUIHELPER_SERIALIZATION))
