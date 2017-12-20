@@ -1,5 +1,7 @@
 //- Common Code For All Addons needed just to ease inclusion as separate files in user code ----------------------
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <imgui.h>
 #undef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS

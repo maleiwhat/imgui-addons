@@ -1366,7 +1366,8 @@ struct DockContext
 		for (size_t i = 0; i < N; ++i) {
 			Dock* new_dock = (Dock*)MemAlloc(sizeof(Dock));
 			m_docks[i] = IM_PLACEMENT_NEW(new_dock) Dock();
-			getValue(tree.get(i, {}).get("ptrId", {}), m_docks[i]->ptrId, 0);
+            auto id = tree.get(i, {}).get("ptrId", {});
+            getValue(id, m_docks[i]->ptrId, 0);
 			new_dock->last_frame = 0;
 		}
 		for (size_t i = 0; i < N; ++i) {
