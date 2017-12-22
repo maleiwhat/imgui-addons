@@ -142,7 +142,7 @@ struct DockContext
         }
 
 
-        bool isContainer() const { return children[0] != NULL; }
+	bool hasChildren() const { return children[0] != NULL; }
 
 
         void setChildrenPosSize(const ImVec2& _pos, const ImVec2& _size)
@@ -206,7 +206,7 @@ struct DockContext
                 tmp->pos = _pos;
             }
 
-            if (!isContainer()) return;
+	    if (!hasChildren()) return;
             setChildrenPosSize(_pos, _size);
         }
 
@@ -326,7 +326,7 @@ struct DockContext
         for (int i = 0; i < m_docks.size(); ++i)
         {
             Dock& dock = *m_docks[i];
-            if (!dock.isContainer()) continue;
+	    if (!dock.hasChildren()) continue;
 
             PushID(i);
             if (!IsMouseDown(0)) dock.status = Status_Docked;
@@ -401,7 +401,7 @@ struct DockContext
         for (int i = 0; i < m_docks.size(); ++i)
         {
             Dock *dock = m_docks[i];
-            if (dock->isContainer()) continue;
+	    if (dock->hasChildren()) continue;
             if (dock->status == Status_Float) continue;
             if (dock->last_frame < frame_limit)
             {
@@ -423,7 +423,7 @@ struct DockContext
         for (int i = 0; i < m_docks.size(); ++i)
         {
             Dock& dock = *m_docks[i];
-            if (dock.isContainer()) continue;
+	    if (dock.hasChildren()) continue;
             if (dock.status != Status_Docked) continue;
             if (IsMouseHoveringRect(dock.pos, dock.pos + dock.size, false))
             {
@@ -520,7 +520,7 @@ struct DockContext
 	    color_hovered = (color_hovered & 0x00FFFFFF) | 0x90000000;
 	    docked_rect_color = (docked_rect_color &  0x00FFFFFF) | 0x80000000;
 
-	    canvas->ChannelsSplit(2);	// Solves overlay order. But won't it break something else ?
+	    //canvas->ChannelsSplit(2);	// Solves overlay order. But won't it break something else ?
 	}
 #	endif ////IMGUITABWINDOW_H_
 	}
@@ -534,7 +534,7 @@ struct DockContext
 	    if (!texture) canvas->AddRectFilled(r.Min, r.Max, color_to_use);
 	    else {
 #		ifdef IMGUITABWINDOW_H_
-		canvas->ChannelsSetCurrent(0);	// Background
+		//canvas->ChannelsSetCurrent(0);	// Background
 		switch (iSlot)	{
 		case ImGuiDockSlot_Left:
 		case ImGuiDockSlot_Right:
@@ -553,7 +553,7 @@ struct DockContext
 		    canvas->AddRectFilled(r.Min, r.Max, color_to_use);
 		break;
 		}
-		canvas->ChannelsSetCurrent(1);	// Foreground
+		//canvas->ChannelsSetCurrent(1);	// Foreground
 #		endif ////IMGUITABWINDOW_H_
 	    }
             if (!hovered) continue;
@@ -561,7 +561,7 @@ struct DockContext
             if (!IsMouseDown(0))
             {
 #		ifdef IMGUITABWINDOW_H_
-		if (texture) canvas->ChannelsMerge();
+		//if (texture) canvas->ChannelsMerge();
 #		endif ////IMGUITABWINDOW_H_
 		doDock(dock, dest_dock ? dest_dock : getRootDock(), iSlot);
                 return true;
@@ -570,7 +570,7 @@ struct DockContext
 	    canvas->AddRectFilled(docked_rect.Min, docked_rect.Max, docked_rect_color);
         }
 #	ifdef IMGUITABWINDOW_H_
-	if (texture) canvas->ChannelsMerge();
+	//if (texture) canvas->ChannelsMerge();
 #	endif ////IMGUITABWINDOW_H_
 	return false;
     }
@@ -580,8 +580,10 @@ struct DockContext
     {
         Dock* dest_dock = getDockAt(GetIO().MousePos);
 
-        Begin("##Overlay",
+	Begin("##Overlay",
               NULL,
+	      ImVec2(0, 0),
+	      0.f,
               ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
               ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
               ImGuiWindowFlags_AlwaysAutoResize);
@@ -782,7 +784,7 @@ struct DockContext
 
                 const char* text_end = FindRenderedTextEnd(dock_tab->label);
                 ImVec2 size(CalcTextSize(dock_tab->label, text_end).x, line_height);
-                if (InvisibleButton(dock_tab->label, size))
+		if (InvisibleButton(dock_tab->label, size))
                 {
                     dock_tab->setActive();
                     m_next_parent = dock_tab;
@@ -800,7 +802,7 @@ struct DockContext
                 bool hovered = IsItemHovered();
                 ImVec2 pos = GetItemRectMin();
                 tab_base = pos.y;
-                draw_list->PathClear();
+		draw_list->PathClear();
                 draw_list->PathLineTo(pos + ImVec2(-15, size.y));
                 draw_list->PathBezierCurveTo(
                             pos + ImVec2(-10, size.y), pos + ImVec2(-5, 0), pos + ImVec2(0, 0), 10);
@@ -809,9 +811,8 @@ struct DockContext
                                              pos + ImVec2(size.x + 10, size.y),
                                              pos + ImVec2(size.x + 15, size.y),
                                              10);
-		draw_list->PathFillConvex(
-                            hovered ? color_hovered : (dock_tab->active ? color_active : color));
-                draw_list->AddText(pos + ImVec2(0, 1), text_color, dock_tab->label, text_end);
+		draw_list->PathFillConvex(hovered ? color_hovered : (dock_tab->active ? color_active : color));
+		draw_list->AddText(pos + ImVec2(0, 1), text_color, dock_tab->label, text_end);
 
 		if (dock_tab->active && close_button)	{
 		    size.x += 16 + GetStyle().ItemSpacing.x;
@@ -883,7 +884,7 @@ struct DockContext
 
     Dock *findNonContainer(Dock *dock)
     {
-        if (dock->isContainer())
+	if (dock->hasChildren())
         {
             Dock *dock2;
             
@@ -975,6 +976,24 @@ struct DockContext
         ImVec2 min_size = root->getMinSize();
         ImVec2 requested_size = size;
         root->setPosSize(pos, ImMax(min_size, requested_size));
+
+	// New December 2017 [https://github.com/nem0/LumixEngine/pull/1185]
+	// Further modified here: https://github.com/nem0/LumixEngine/commit/dfa6598a386224bb1d25e08f4c229c62d59351ff#diff-40effb02fb4dfcd620fa88d16875bb14
+	static bool is_first_call = true;
+	if (!is_first_call) {
+	    for (ImVector<Dock*>::const_iterator it = m_docks.begin(); it != m_docks.end();)	{
+		Dock* dock = *it;
+		if (!dock->hasChildren() && dock != root && (ImGui::GetFrameCount() - dock->last_frame) > 1)	{
+		    doUndock(*dock);
+		    dock->~Dock();
+		    MemFree(dock);
+		    it = m_docks.erase(it);
+		}
+		else ++it;
+	    }
+	}
+	is_first_call = false;
+
     }
 
 
@@ -1174,7 +1193,7 @@ struct DockContext
                     Text("parent = %p\n",
                          dock.parent);
                     Text("isContainer() == %s\n",
-                         dock.isContainer()?"true":"false");
+			 dock.hasChildren()?"true":"false");
                     Text("status = %s\n",
                          (dock.status == Status_Docked)?"Docked":
                                                         ((dock.status == Status_Dragged)?"Dragged":
