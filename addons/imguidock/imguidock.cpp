@@ -1339,22 +1339,6 @@ struct DockContext
 		g("parent", &dock.parent);
 	}
 
-	void cleanDocks()
-	{
-	restart:
-		for (int i = 0, c = m_docks.size(); i < c; ++i)
-		{
-			Dock& dock = *m_docks[i];
-			if (dock.last_frame == 0 && dock.status != Status_Float && !dock.children[0])
-			{
-				fillLocation(*m_docks[i]);
-				doUndock(*m_docks[i]);
-				m_docks[i]->status = Status_Float;
-				goto restart;
-			}
-		}
-	}
-
 	std::string toStringJson()
 	{
 		cleanDocks();
