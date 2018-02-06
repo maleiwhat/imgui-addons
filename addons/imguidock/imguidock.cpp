@@ -1475,36 +1475,18 @@ DockContext* CreateDockContext()
 
 void DestroyDockContext(DockContext* dock)
 {
-    if (dock == &g_default_dock)
+==== BASE ====
+    for (int i = 0; i < g_dock.m_docks.size(); ++i)
+==== BASE ====
     {
-        // No-op.
+==== BASE ====
+        g_dock.m_docks[i]->~Dock();
+        MemFree(g_dock.m_docks[i]);
+==== BASE ====
     }
-    else
-    {
-        if (dock == g_dock)
-            SetCurrentDockContext(NULL);
-
-        delete dock;
-        dock = NULL;
-    }
-}
-
-void SetCurrentDockContext(DockContext* dock)
-{
-    if (!dock)
-        g_dock = &g_default_dock;
-    else
-        g_dock = dock;
-}
-
-DockContext* GetCurrentDockContext()
-{
-    return g_dock;
-}
-
-void ShutdownDock()
-{
-    g_dock->Shutdown();
+==== BASE ====
+    g_dock.m_docks.clear();
+==== BASE ====
 }
 
 void SetNextDock(ImGuiDockSlot slot) {
