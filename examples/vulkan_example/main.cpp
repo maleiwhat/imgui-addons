@@ -625,13 +625,8 @@ int main(int, char**)
     ImGui_ImplGlfwVulkan_Init(window, true, &init_data);
 
     // Setup style
-<<<<<<< HEAD
-    ImGui::StyleColorsClassic();
-    //ImGui::StyleColorsDark();
-=======
     ImGui::StyleColorsDark();
     //ImGui::StyleColorsClassic();
->>>>>>> 0d4de754d2ffe798a79968e5b6e9b639cad0b878
 
     // Load Fonts
     // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them. 
@@ -705,15 +700,6 @@ int main(int, char**)
         // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets automatically appears in a window called "Debug".
         {
             static float f = 0.0f;
-<<<<<<< HEAD
-            ImGui::Text("Hello, world!");                           // Some text (you can use a format string too)
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float as a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats as a color
-            if (ImGui::Button("Demo Window"))                       // Use buttons to toggle our bools. We could use Checkbox() as well.
-                show_demo_window ^= 1;
-            if (ImGui::Button("Another Window"))
-                show_another_window ^= 1;
-=======
             static int counter = 0;
             ImGui::Text("Hello, world!");                           // Display some text (you can use a format string too)
             ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f    
@@ -727,7 +713,6 @@ int main(int, char**)
             ImGui::SameLine();
             ImGui::Text("counter = %d", counter);
 
->>>>>>> 0d4de754d2ffe798a79968e5b6e9b639cad0b878
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         }
 
@@ -741,11 +726,7 @@ int main(int, char**)
             ImGui::End();
         }
 
-<<<<<<< HEAD
-        // 3. Show the ImGui demo window. Most of the sample code is in ImGui::ShowDemoWindow().
-=======
         // 3. Show the ImGui demo window. Most of the sample code is in ImGui::ShowDemoWindow(). Read its code to learn more about Dear ImGui!
->>>>>>> 0d4de754d2ffe798a79968e5b6e9b639cad0b878
         if (show_demo_window)
         {
             ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver); // Normally user code doesn't need/want to call this because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!

@@ -10,11 +10,7 @@
 void DebugHUD_InitDefaults( DebugHUD *hud )
 {
     hud->show_demo_window = true;
-<<<<<<< HEAD
-    hud->show_example_window = true;
-=======
     hud->show_another_window = true;
->>>>>>> 0d4de754d2ffe798a79968e5b6e9b639cad0b878
     hud->rotation_speed = 15.0f;
     
     hud->cubeColor1[0] = 0.4f;
@@ -30,12 +26,6 @@ void DebugHUD_InitDefaults( DebugHUD *hud )
 
 void DebugHUD_DoInterface(DebugHUD *hud)
 {
-<<<<<<< HEAD
-    if (hud->show_demo_window)
-    {
-        ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver); // Normally user code doesn't need/want to call this because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
-        ImGui::ShowDemoWindow(&hud->show_demo_window );
-=======
     // 1. Show a simple window.
     // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets automatically appears in a window called "Debug".
     {
@@ -54,7 +44,6 @@ void DebugHUD_DoInterface(DebugHUD *hud)
         ImGui::Text("counter = %d", counter);
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
->>>>>>> 0d4de754d2ffe798a79968e5b6e9b639cad0b878
     }
 
     // 2. Show another simple window. In most cases you will use an explicit Begin/End pair to name your windows.
