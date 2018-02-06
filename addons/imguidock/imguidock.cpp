@@ -1547,29 +1547,29 @@ void DockDebugWindow()
 
 IMGUI_API bool isMouseHoveringDock()
 {
-	return g_dock.isMouseHoveringDock();
+    return g_dock->isMouseHoveringDock();
 }
 
 
 IMGUI_API bool isDockActive()
 {
-	return g_dock.isDockActive();
+    return g_dock->isDockActive();
 }
 
 
 IMGUI_API std::string toStringJson()
 {
-	return g_dock.toStringJson();
+    return g_dock->toStringJson();
 }
 
 IMGUI_API void fromStringJson(const std::string &s)
 {
-	g_dock.fromStringJson(s);
+    g_dock->fromStringJson(s);
 }
 
 IMGUI_API void getPos(int &x, int &y)
 {
-	g_dock.getPos(x, y);
+    g_dock->getPos(x, y);
 }
 
 
