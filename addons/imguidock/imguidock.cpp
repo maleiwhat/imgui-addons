@@ -86,7 +86,7 @@ struct DockContext
         }
 
 
-        ~Dock() { MemFree(label); }
+        ~Dock() {MemFree(label); }
 
 
         ImVec2 getMinSize() const
@@ -242,6 +242,7 @@ struct DockContext
     ImVec2 m_workspace_pos;
     ImVec2 m_workspace_size;
     ImGuiDockSlot m_next_dock_slot;
+    bool m_is_first_call;
 
     DockContext()
         : m_current(NULL)
@@ -249,12 +250,23 @@ struct DockContext
         , m_last_frame(0)
 	, m_is_begin_open(false)
         , m_next_dock_slot(ImGuiDockSlot_Tab)
+        , m_is_first_call(true)
     {
     }
 
 
     ~DockContext() {
-	ShutdownDock();//New
+        Shutdown();
+    }
+
+    void Shutdown()
+    {
+        for (int i = 0; i < m_docks.size(); ++i)
+        {
+            m_docks[i]->~Dock();
+            MemFree(m_docks[i]);
+        }
+        m_docks.clear();
     }
 
     Dock& getDock(const char* label, bool opened, const ImVec2& default_size)
@@ -984,8 +996,7 @@ struct DockContext
 
 	// New December 2017 [https://github.com/nem0/LumixEngine/pull/1185]
 	// Further modified here: https://github.com/nem0/LumixEngine/commit/dfa6598a386224bb1d25e08f4c229c62d59351ff#diff-40effb02fb4dfcd620fa88d16875bb14
-	static bool is_first_call = true;
-	if (!is_first_call) {
+	if (!m_is_first_call) {
 	    for (ImVector<Dock*>::const_iterator it = m_docks.begin(); it != m_docks.end();)	{
 		Dock* dock = *it;
 		if (!dock->hasChildren() && dock != root && (ImGui::GetFrameCount() - dock->last_frame) > 1)	{
@@ -997,7 +1008,7 @@ struct DockContext
 		else ++it;
 	    }
 	}
-	is_first_call = false;
+	m_is_first_call = false;
 
     }
 
@@ -1170,15 +1181,32 @@ struct DockContext
 	PushStyleColor(ImGuiCol_Border, ImVec4(0, 0, 0, 0));
 	PushStyleColor(ImGuiCol_BorderShadow, ImVec4(0, 0, 0, 0));
 	float tabbar_height = GetTextLineHeightWithSpacing();
-	if (tabbar(dock.getFirstTab(), opened != NULL))
+
+    bool draw_tabbar = true;
+    Dock& firstTab = dock.getFirstTab();
+    IM_ASSERT(!firstTab.prev_tab);
+    if (!firstTab.next_tab)
+    {
+        if (extra_flags & ImGuiWindowFlags_NoTitleBar)
+        {
+            if (!firstTab.parent && !firstTab.hasChildren())
+                draw_tabbar = false;
+        }
+    }
+
+    ImVec2 pos = dock.pos;
+    ImVec2 size = dock.size;
+
+    if (draw_tabbar)
+    {
+    	if (tabbar(firstTab, opened != NULL))
         {
             fillLocation(dock);
             *opened = false;
         }
-        ImVec2 pos = dock.pos;
-        ImVec2 size = dock.size;
         pos.y += tabbar_height + GetStyle().WindowPadding.y;
         size.y -= tabbar_height + GetStyle().WindowPadding.y;
+    }
 
         SetCursorScreenPos(pos);
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
@@ -1190,6 +1218,13 @@ struct DockContext
 	strcat(tmp, "_docked"); // to avoid https://github.com/ocornut/imgui/issues/713
 	bool ret = BeginChild(tmp, size, true, flags);
 	PopStyleColor(2);
+
+    if (dock.status == Status_Dragged)
+    {
+        // Draw this on top of everything else.
+        ImGuiWindow* window = GetCurrentWindow();
+        window->BeginOrderWithinParent = 100000;
+    }
 
         return ret;
     }
@@ -1430,28 +1465,57 @@ struct DockContext
 };
 
 
-static DockContext g_dock;
+static DockContext g_default_dock;
+static DockContext *g_dock = &g_default_dock;
 
+DockContext* CreateDockContext()
+{
+    return new DockContext;
+}
+
+void DestroyDockContext(DockContext* dock)
+{
+    if (dock == &g_default_dock)
+    {
+        // No-op.
+    }
+    else
+    {
+        if (dock == g_dock)
+            SetCurrentDockContext(NULL);
+
+        delete dock;
+        dock = NULL;
+    }
+}
+
+void SetCurrentDockContext(DockContext* dock)
+{
+    if (!dock)
+        g_dock = &g_default_dock;
+    else
+        g_dock = dock;
+}
+
+DockContext* GetCurrentDockContext()
+{
+    return g_dock;
+}
 
 void ShutdownDock()
 {
-    for (int i = 0; i < g_dock.m_docks.size(); ++i)
-    {
-        g_dock.m_docks[i]->~Dock();
-        MemFree(g_dock.m_docks[i]);
-    }
-    g_dock.m_docks.clear();
+    g_dock->Shutdown();
 }
 
 void SetNextDock(ImGuiDockSlot slot) {
-    g_dock.m_next_dock_slot = slot;
+    g_dock->m_next_dock_slot = slot;
 }
 
 void BeginDockspace() {
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar;
     BeginChild("###workspace", ImVec2(0,0), false, flags);
-    g_dock.m_workspace_pos = GetWindowPos();
-    g_dock.m_workspace_size = GetWindowSize();
+    g_dock->m_workspace_pos = GetWindowPos();
+    g_dock->m_workspace_size = GetWindowSize();
 }
 
 void EndDockspace() {
@@ -1460,24 +1524,24 @@ void EndDockspace() {
 
 void SetDockActive()
 {
-    g_dock.setDockActive();
+    g_dock->setDockActive();
 }
 
 
 bool BeginDock(const char* label, bool* opened, ImGuiWindowFlags extra_flags, const ImVec2& default_size)
 {
-    return g_dock.begin(label, opened, extra_flags, default_size);
+    return g_dock->begin(label, opened, extra_flags, default_size);
 }
 
 
 void EndDock()
 {
-    g_dock.end();
+    g_dock->end();
 }
 
 void DockDebugWindow()
 {
-    g_dock.debugWindow();
+    g_dock->debugWindow();
 }
 
 
@@ -1514,7 +1578,7 @@ IMGUI_API void getPos(int &x, int &y)
 #   ifndef NO_IMGUIHELPER_SERIALIZATION_SAVE
     bool SaveDock(ImGuiHelper::Serializer& s)	{
 	if (!s.isValid()) return false;
-	DockContext& myDock = g_dock;
+	DockContext& myDock = *g_dock;
 	ImVector<DockContext::Dock*>& m_docks = myDock.m_docks;
 
 	int sz = m_docks.size();s.save(&sz,"NumDocks");int id=0;
@@ -1567,6 +1631,10 @@ IMGUI_API void getPos(int &x, int &y)
 		m_docks[P.curIndex]->invalid_frames = 0;
 	    }
 	    else if (strcmp(name,"label")==0) {
+            if (strcmp((const char*)pValue, "\n") == 0) {
+                // ??? - bug in the serializer, I suppose?
+                pValue = (void*)"";
+            }
 		    m_docks[P.curIndex]->label = ImStrdup((const char*) pValue);
 		    m_docks[P.curIndex]->id = ImHash(m_docks[P.curIndex]->label, 0);
 	    }
@@ -1594,7 +1662,7 @@ IMGUI_API void getPos(int &x, int &y)
     bool LoadDock(ImGuiHelper::Deserializer& d,const char ** pOptionalBufferStart)  {
 	if (!d.isValid()) return false;
 	const char* amount = pOptionalBufferStart ? (*pOptionalBufferStart) : 0;
-	DockContext& myDock = g_dock;
+	DockContext& myDock = *g_dock;
 	ImVector<DockContext::Dock*>& m_docks = myDock.m_docks;
 	// clear
 	for (int i = 0; i < m_docks.size(); ++i)    {

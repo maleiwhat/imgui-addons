@@ -1,5 +1,9 @@
 // ImGui - null/dummy example application (compile and link imgui with no inputs, no outputs)
+<<<<<<< HEAD
 #include <imgui.h>
+=======
+#include "imgui.h"
+>>>>>>> 0d4de754d2ffe798a79968e5b6e9b639cad0b878
 #include <stdio.h>
 
 int main(int, char**)

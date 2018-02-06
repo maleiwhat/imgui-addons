@@ -1705,7 +1705,12 @@ void ImImpl_NewFramePaused()    {
 
     // New
     g.MovingWindow = NULL;
-    g.MovingWindowMoveId = 0;
+
+    // New
+    g.TooltipOverrideCount = 0;
+    g.WindowsActiveCount = 0;
+    //g.FrameCount += 1;    // Not sure this should be incremented or not when ImGui is not used...
+
 }
 
 
