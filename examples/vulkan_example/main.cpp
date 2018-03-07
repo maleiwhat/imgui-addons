@@ -507,7 +507,7 @@ static void cleanup_vulkan()
 static void frame_begin()
 {
     VkResult err;
-    while (true)
+    for (;;)
     {
         err = vkWaitForFences(g_Device, 1, &g_Fence[g_FrameIndex], VK_TRUE, 100);
         if (err == VK_SUCCESS) break;
@@ -614,6 +614,8 @@ int main(int, char**)
     setup_vulkan(window);
 
     // Setup ImGui binding
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplGlfwVulkan_Init_Data init_data = {};
     init_data.allocator = g_Allocator;
     init_data.gpu = g_Gpu;
@@ -622,6 +624,8 @@ int main(int, char**)
     init_data.pipeline_cache = g_PipelineCache;
     init_data.descriptor_pool = g_DescriptorPool;
     init_data.check_vk_result = check_vk_result;
+
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
     ImGui_ImplGlfwVulkan_Init(window, true, &init_data);
 
     // Setup style
@@ -633,14 +637,13 @@ int main(int, char**)
     // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple. 
     // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
     // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Read 'extra_fonts/README.txt' for more instructions and details.
+    // - Read 'misc/fonts/README.txt' for more instructions and details.
     // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //ImGuiIO& io = ImGui::GetIO();
     //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("../../extra_fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../extra_fonts/Cousine-Regular.ttf", 15.0f);
-    //io.Fonts->AddFontFromFileTTF("../../extra_fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../extra_fonts/ProggyTiny.ttf", 10.0f);
+    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != NULL);
 
@@ -744,6 +747,7 @@ int main(int, char**)
     VkResult err = vkDeviceWaitIdle(g_Device);
     check_vk_result(err);
     ImGui_ImplGlfwVulkan_Shutdown();
+    ImGui::DestroyContext();
     cleanup_vulkan();
     glfwTerminate();
 
