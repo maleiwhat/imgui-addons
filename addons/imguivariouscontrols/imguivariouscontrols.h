@@ -267,7 +267,10 @@ struct AnimatedImage {
     void SetGenerateOrUpdateTextureCallback(GenerateOrUpdateTextureDelegate generateOrUpdateTextureCb) {GenerateOrUpdateTextureCb=generateOrUpdateTextureCb;}
 
 #	ifndef STBI_NO_GIF
-    IMGUI_API AnimatedImage(char const *filename,bool useHoverModeIfSupported=false); // 'hoverMode' is supported only if all frames fit 'MaxPersistentTextureSize'
+#   ifndef IMGUIVARIOUSCONTROLS_NO_STDIO
+    IMGUI_API AnimatedImage(char const *gif_filepath,bool useHoverModeIfSupported=false); // 'hoverMode' is supported only if all frames fit 'MaxPersistentTextureSize'
+#   endif //IMGUIVARIOUSCONTROLS_NO_STDIO
+    IMGUI_API AnimatedImage(const unsigned char* gif_buffer,int gif_buffer_size,bool useHoverModeIfSupported=false); // 'hoverMode' is supported only if all frames fit 'MaxPersistentTextureSize'
 #	endif //STBI_NO_GIF
     IMGUI_API AnimatedImage(ImTextureID myTexId,int animationImageWidth,int animationImageHeight,int numFrames,int numFramesPerRowInTexture,int numFramesPerColumnInTexture,float delayBetweenFramesInCs,bool useHoverMode=false); // 'hoverMode' always available. 'myTexId' is yours.
     IMGUI_API AnimatedImage();    // You'll need to manually call 'load' o 'create'
@@ -280,7 +283,10 @@ struct AnimatedImage {
 
     // Less useful methods
 #	ifndef STBI_NO_GIF
-    IMGUI_API bool load(char const *filename,bool useHoverModeIfSupported=false); // 'hoverMode' is supported only if all frames fit 'MaxPersistentTextureSize'
+#   ifndef IMGUIVARIOUSCONTROLS_NO_STDIO
+    IMGUI_API bool load(char const *gif_filepath,bool useHoverModeIfSupported=false); // 'hoverMode' is supported only if all frames fit 'MaxPersistentTextureSize'
+#   endif //IMGUIVARIOUSCONTROLS_NO_STDIO
+    IMGUI_API bool load_from_memory(const unsigned char* gif_buffer,int gif_buffer_size,bool useHoverModeIfSupported=false);  // 'hoverMode' is supported only if all frames fit 'MaxPersistentTextureSize'
 #	endif //STBI_NO_GIF
     IMGUI_API bool create(ImTextureID myTexId,int animationImageWidth,int animationImageHeight,int numFrames,int numFramesPerRowInTexture,int numFramesPerColumnInTexture,float delayBetweenFramesInCs,bool useHoverMode=false); // 'hoverMode' always available. 'myTexId' is yours.
     IMGUI_API int getWidth() const;
@@ -315,7 +321,7 @@ IMGUI_API bool ImageZoomAndPan(ImTextureID user_texture_id, const ImVec2& size,f
                 const void* ptr_id = &myTreeNodeIsOpen;
                 const float curPosX = ImGui::GetCursorPosX();   // used for clipping
                 ImGui::BeginGroup();    // Not sure grouping is strictly necessary here
-                myTreeNodeIsOpen = ImGui::TreeNodeEx(ptr_id,ImGuiTreeNodeFlags_CollapsingHeader|ImGuiTreeNodeFlags_AllowOverlapMode,"Collapsable %d",1);
+                myTreeNodeIsOpen = ImGui::TreeNodeEx(ptr_id,(ImGuiTreeNodeFlags_CollapsingHeader & (~ImGuiTreeNodeFlags_NoTreePushOnOpen))|ImGuiTreeNodeFlags_AllowOverlapMode,"Collapsable %d",1);
                 //if (ImGui::IsItemHovered()) // optional condition if we want buttons to appear only when the collapsable header is hovered
                 {
                     ImGui::AppendTreeNodeHeaderButtons(ptr_id,curPosX,

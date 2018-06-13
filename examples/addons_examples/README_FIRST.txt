@@ -198,13 +198,30 @@ IMIMPL_BUILD_SDF				# builds Signed Distance Fonts for ImGui. To display them co
 						# Warning: ARTIFACTS will appear when displaying any user ImTextureID fragment with ALPHA inside the range (0,255) (edges excluded).
 						# This also affects all the images displayed in the imguiimageeditor addon, when their ALPHA is not 0 or 255.
 						# (This happens because we use a single shader to display everything).
+						# Warning: I'm not sure this works with the imguifreetype addon (YES_IMGUIFREETYPE).
 
-IMGUIBINDINGS_DONT_CLEAR_INPUT_DATA_SOON:	# Normally ImGui::GetIO()->Fonts->ClearInputData() and ImGui::GetIO()->Fonts->ClearTexData() are called as soon as possible saving some memory.
+IMIMPL_USE_ARB_TEXTURE_SWIZZLE_TO_SAVE_FONT_TEXTURE_MEMORY	    # It uses the GL_ARB_TEXTURE_SWIZZLE OpenGL extension (core in OpenGL 3.3, and present as an extension on many systems in previous OpenGL versions),
+								    # to reduce GPU font texture memory to about 0.25 times the full RGBA memory.
+								    # This is expecially useful for fonts with a lot of glyphs (e.g. Chinese fonts).
+								    # Note : this definition requires the GL_ARB_TEXTURE_SWIZZLE OpenGL extension, but IT DOES NOT CHECK if this extension is supported by the target platform (it just assumes it is).
+
+IMIMPL_USE_ARB_TEXTURE_COMPRESSION_TO_COMPRESS_FONT_TEXTURE	    # It uses the GL_ARB_TEXTURE_COMPRESSION OpenGL extension to try to compress the font texture (to reduce GPU memory). If it fails, a message is displayed to the console.
+								    # Note : this definition requires the GL_ARB_TEXTURE_COMPRESSION OpenGL extension, but IT DOES NOT CHECK if this extension is supported by the target platform (it just assumes it is).
+								    # On my system, it works only when IMIMPL_USE_ARB_TEXTURE_SWIZZLE_TO_SAVE_FONT_TEXTURE_MEMORY is not defined (otherwise it just does not compress it).
+
+The following definitions can be defined with any binding:
+
+IMGUIBINDINGS_DONT_CLEAR_INPUT_DATA_SOON:	# Normally ImGui::GetIO()->Fonts->ClearInputData() and ImGui::GetIO()->Fonts->ClearTexData() are called as soon as possible to save some memory.
 						# However this prevents you from appending new fonts later (e.g. in InitGL() instead of in the main() method).
-						# This definition fixes this problem.
+						# And this also prevents you from using SOFTWARE CURSORS.
+						# If you want to use software cursors or to append fonts later, please define this definition.
 						# Possible future ImGui dynamic atlas support will require input data anyway, so this definition will be made enabled by default.
-						# The input data is cleaned up before the delation of the font texture if IMGUIBINDINGS_DONT_CLEAR_INPUT_DATA_SOON is not defined.
-						# This definition is available for the Direct3D binding as well.
+						# The input data is cleaned up before the delation of the font texture if IMGUIBINDINGS_DONT_CLEAR_INPUT_DATA_SOON is defined.
+
+IMGUIBINDINGS_FONTATLAS_NOMOUSECURSORS		# Excludes SOFTWARE CURSORS from the font texture (it's implicit when IMGUIBINDINGS_DONT_CLEAR_INPUT_DATA_SOON is NOT defined).
+
+IMGUIBINDINGS_FONTATLAS_NOPOWEROFTWOHEIGHT	# If you define it the font texture height is not bound to be a power of two.
+
 
 4 -> OPTIONALLY you can use other definitions at the project level:
 IMGUI_USE_ZLIB					# requires the library zlib. It currently enables loading ttf.gz fonts (from file or embedded in C++ code) through the ImImpl_Main(...) method (only if you use one of the "bindings" above), 

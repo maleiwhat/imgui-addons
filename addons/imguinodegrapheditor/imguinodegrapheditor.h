@@ -53,6 +53,12 @@
 -> FIXED: https://github.com/Flix01/imgui/issues/16
 */
 
+// Enforce cdecl calling convention for functions called by the standard library, in case compilation settings changed the default to e.g. __vectorcall
+#ifdef _MSC_VER
+#define IMGUINGE_CDECL __cdecl
+#else
+#define IMGUINGE_CDECL
+#endif
 
 namespace ImGui	{
 #   ifndef IMGUIHELPER_H_
@@ -271,7 +277,7 @@ class Node
         bool nodeEdited = false;
         for (int i=0,isz=fields.size();i<isz;i++)   {
             FieldInfo& f = fields[i];
-            nodeEdited|=f.render(nodeWidth);
+            nodeEdited|=f.render(static_cast<int>(nodeWidth));
         }
         return nodeEdited;
     }
@@ -353,7 +359,7 @@ struct NodeLink
         OutputNode = output_node; OutputSlot = output_slot;
     }
 
-    friend struct NodeGraphEditor;
+    friend class NodeGraphEditor;
 };
 
 class NodeGraphEditor
@@ -501,7 +507,7 @@ class NodeGraphEditor
     bool show_node_copy_paste_buttons;
     static bool UseSlidersInsteadOfDragControls;
     mutable void* user_ptr;
-    static Style& GetStyle() {return style;}
+    static Style& GetStyle() {static Style style;return style;}
     /*mutable ImGuiColorEditMode colorEditMode;*/
     float nodesBaseWidth;
 	enum class DragEnum {
@@ -688,7 +694,7 @@ class NodeGraphEditor
     // It should be better not to add/delete node/links in the callbacks... (but all is untested here)
     void setNodeCallback(NodeCallback cb) {nodeCallback=cb;}
     void setLinkCallback(LinkCallback cb) {linkCallback=cb;}
-    void setNodeEditedCallbackTimeThreshold(int seconds) {nodeEditedTimeThreshold=seconds;}
+    void setNodeEditedCallbackTimeThreshold(int seconds) {nodeEditedTimeThreshold=static_cast<float>(seconds);}
 
 //-------------------------------------------------------------------------------
 #       if (defined(IMGUIHELPER_H_) && !defined(NO_IMGUIHELPER_SERIALIZATION))
@@ -778,7 +784,7 @@ class NodeGraphEditor
     // Refactored for cleaner exposure (without the misleading 'flag' argument)
     void selectNodePrivate(const Node* node, bool flag=true,bool findANewActiveNodeWhenNeeded=true);
     void selectAllNodesPrivate(bool flag=true,bool findANewActiveNodeWhenNeeded=true);
-    static int AvailableNodeInfoNameSorter(const void *s0, const void *s1) {
+    static int IMGUINGE_CDECL AvailableNodeInfoNameSorter(const void *s0, const void *s1) {
         const AvailableNodeInfo& ni0 = *((AvailableNodeInfo*) s0);
         const AvailableNodeInfo& ni1 = *((AvailableNodeInfo*) s1);
         return strcmp(ni0.name,ni1.name);

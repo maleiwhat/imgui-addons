@@ -10,6 +10,7 @@
 
 #include <stdlib.h> // qsort
 
+
 #if !defined(alloca)
 #   ifdef _WIN32
 #       include <malloc.h>     // alloca
@@ -250,7 +251,6 @@ static void ImDrawListAddRectWithVerticalGradient(ImDrawList *dl, const ImVec2 &
 }
 } // namespace
 
-NodeGraphEditor::Style NodeGraphEditor::style;  // static variable initialization
 inline static bool EditColorImU32(const char* label,ImU32& color) {
     static ImVec4 tmp;
     tmp = ImColor(color);
@@ -580,7 +580,8 @@ void NodeGraphEditor::render()
             if (ImGui::CollapsingHeader("Style Editor##styleEditor",NULL,false))   {
                 ImGui::Separator();
                 //ImGui::ColorEditMode(colorEditMode);
-                Style::Edit(this->style);
+                Style& thisStyle = GetStyle();
+                Style::Edit(thisStyle);
                 ImGui::Separator();
 #if             (defined(IMGUIHELPER_H_) && !defined(NO_IMGUIHELPER_SERIALIZATION))
                 const char* saveName = "nodeGraphEditor.nge.style";
@@ -591,7 +592,7 @@ void NodeGraphEditor::render()
 #                   ifdef YES_IMGUIEMSCRIPTENPERSISTENTFOLDER
                     pSaveName = saveNamePersistent;
 #                   endif //YES_IMGUIEMSCRIPTENPERSISTENTFOLDER
-                    if (Style::Save(this->style,pSaveName)) {
+                    if (Style::Save(thisStyle,pSaveName)) {
 #                   ifdef YES_IMGUIEMSCRIPTENPERSISTENTFOLDER
                         ImGui::EmscriptenFileSystemHelper::Sync();
 #                   endif //YES_IMGUIEMSCRIPTENPERSISTENTFOLDER
@@ -604,14 +605,14 @@ void NodeGraphEditor::render()
 #                   ifdef YES_IMGUIEMSCRIPTENPERSISTENTFOLDER
                     if (ImGuiHelper::FileExists(saveNamePersistent)) pSaveName = saveNamePersistent;
 #                   endif //YES_IMGUIEMSCRIPTENPERSISTENTFOLDER
-                    Style::Load(this->style,pSaveName);
+                    Style::Load(thisStyle,pSaveName);
                 }
                 ImGui::SameLine();
 #               endif //NO_IMGUIHELPER_SERIALIZATION_LOAD
 #               endif //NO_IMGUIHELPER_SERIALIZATION
 
                 if (ImGui::SmallButton("Reset##resetGNEStyle")) {
-                    Style::Reset(this->style);
+                    Style::Reset(thisStyle);
                 }
             }
             ImGui::Separator();
@@ -722,6 +723,7 @@ void NodeGraphEditor::render()
 	gNodeGraphEditorWindowPadding = ImGui::GetStyle().WindowPadding;
 	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1,1));
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+    const Style& style = GetStyle();
         ImGui::PushStyleColor(ImGuiCol_ChildBg, style.color_background);
         if (ImGui::BeginChild("scrolling_region", ImVec2(0,0), true, ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoScrollWithMouse))  {
 
@@ -869,7 +871,9 @@ void NodeGraphEditor::render()
 
             const bool isLMBClicked = ImGui::IsMouseClicked(0);
             const bool isLMBDoubleClicked = ImGui::IsMouseDoubleClicked(0);
-            const bool isMouseDraggingForMovingNodes = isMouseHoveringWindow && ImGui::IsMouseDragging(0, 8.0f);	// This is not enough for a node to be actually moved
+            // Note that this alone is not enough for a node to be actually moved:
+            const bool isMouseDraggingForMovingNodes = isMouseHoveringWindow && //ImGui::IsMouseDragging(0, 8.0f);  // Hey: IsMouseDragging(...) in this case does not work anymore! It can still move nodes, but it does not allow rectangle selection anymore. Why?
+                    io.MouseDown[0];    // Very bad fallback that works but is much less robust...
 
             // Display links variable (their display code have been moved down)
             const bool cantDragAnything = isMouseDraggingForScrolling || mouseRectangularSelectionForNodesStarted;
@@ -1157,7 +1161,7 @@ void NodeGraphEditor::render()
                         if (jn->isSelected) jn->Pos = jn->Pos + mouseDeltaPos;
                     }
                     isSomeNodeMoving=true;
-                }
+                }                
 
                 const ImU32& node_bg_color = (node_hovered_in_list == node || node_hovered_in_scene == node) ? style.color_node_hovered :
                                                                                                                (activeNode == node ? style.color_node_active :
@@ -1624,13 +1628,13 @@ void NodeGraphEditor::render()
             // TODO: We can probably adjust the or-group better, using the new flags/methods, in next line
             if (isMouseDraggingForScrolling && (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem) || ImGui::IsWindowFocused() || IsWindowFocused(ImGuiFocusedFlags_RootWindow))) {
                 scrolling = scrolling - io.MouseDelta;
-                ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
                 // This must be fixed somehow: ImGui::GetIO().WantCaptureMouse == false, because g.ActiveID == 0
                 //        fprintf(stderr,"g.ActiveId=%d\n",g.ActiveId);     // This is the inner cause
                 //        ImGui::GetIO().WantCaptureMouse = true; // does nothing
                 //        g.ActiveId = window->MoveId;            // makes WantCaptureMouse and WantCaptureKeyboard toggle like crazy every frame
             }
-            else if (isSomeNodeMoving) ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+            else if (isSomeNodeMoving) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
 
             if (!io.FontAllowUserScaling)   {
                 // Reset the font scale (3 lines)
@@ -2276,30 +2280,24 @@ bool FieldInfo::render(int nodeWidth)   {
     switch (f.type) {
     case FT_DOUBLE: {
         precisionStr[precisionLastCharIndex]='f';
-        const float minValue = (float) f.minValue;
-        const float maxValue = (float) f.maxValue;
+        const double minValue = (double) f.minValue;
+        const double maxValue = (double) f.maxValue;
+        const ImGuiDataType_ dataType = ImGuiDataType_Double;
         const double rtd = f.needsRadiansToDegs ? GetRadiansToDegs<double>() : 1.f;
         const double dtr = f.needsRadiansToDegs ? GetDegsToRadians<double>() : 1.f;
         double* pField = (double*)f.pdata;
-        float value[4] = {0,0,0,0};
+        double value[4] = {0,0,0,0};
         for (int vl=0;vl<f.numArrayElements;vl++) {
-            value[vl] = (float) ((*(pField+vl))*rtd);
+            value[vl] = (double) ((*(pField+vl))*rtd);
         }
         if (NodeGraphEditor::UseSlidersInsteadOfDragControls)   {
-            switch (f.numArrayElements)    {
-            case 2: changed = ImGui::SliderFloat2(label,value,minValue,maxValue,precisionStr);break;
-            case 3: changed = ImGui::SliderFloat3(label,value,minValue,maxValue,precisionStr);break;
-            case 4: changed = ImGui::SliderFloat4(label,value,minValue,maxValue,precisionStr);break;
-            default: changed = ImGui::SliderFloat(label,value,minValue,maxValue,precisionStr);break;
-            }
+            if (f.numArrayElements>1) changed = ImGui::SliderScalarN(label,dataType,value,f.numArrayElements,&minValue,&maxValue,precisionStr);
+            else changed = ImGui::SliderScalar(label,dataType,value,&minValue,&maxValue,precisionStr);
         }
         else {
-            switch (f.numArrayElements)    {
-            case 2: changed = ImGui::DragFloat2(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            case 3: changed = ImGui::DragFloat3(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            case 4: changed = ImGui::DragFloat4(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            default: changed = ImGui::DragFloat(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            }
+            if (dragSpeed<1.f) dragSpeed = 1.f;
+            if (f.numArrayElements>1) changed = ImGui::DragScalarN(label,dataType,value,f.numArrayElements,dragSpeed,&minValue,&maxValue,precisionStr);
+            else changed = ImGui::DragScalar(label,dataType,value,dragSpeed,&minValue,&maxValue,precisionStr);
         }
         if (changed)    {
             for (int vl=0;vl<f.numArrayElements;vl++) {
@@ -2344,69 +2342,43 @@ bool FieldInfo::render(int nodeWidth)   {
     }
         break;
     case FT_UNSIGNED: {
-        strcpy(precisionStr,"%1.0f");
-        const int minValue = (int) f.minValue;
-        const int maxValue = (int) f.maxValue;
-        unsigned* pField = (unsigned*) f.pdata;
-        int value[4] = {0,0,0,0};
-        for (int vl=0;vl<f.numArrayElements;vl++) {
-            value[vl] = (int) *(pField+vl);
-        }
+        strcpy(precisionStr,"%u");
+        const ImGuiDataType_ dataType = ImGuiDataType_U32;
+        const unsigned int minValue = (unsigned int) f.minValue;
+        const unsigned int maxValue = (unsigned int) f.maxValue;
+        unsigned int* pField = (unsigned int*) f.pdata;
+        unsigned int value[4] = {0,0,0,0};  // TODO: Probably we can remove this hack now that Dear ImGui supports all types
+        for (int vl=0;vl<f.numArrayElements;vl++) {value[vl] = (unsigned int) *(pField+vl);}
         if (NodeGraphEditor::UseSlidersInsteadOfDragControls)   {
-            switch (f.numArrayElements)    {
-            case 2: changed = ImGui::SliderInt2(label,value,minValue,maxValue,precisionStr);break;
-            case 3: changed = ImGui::SliderInt3(label,value,minValue,maxValue,precisionStr);break;
-            case 4: changed = ImGui::SliderInt4(label,value,minValue,maxValue,precisionStr);break;
-            default: changed = ImGui::SliderInt(label,value,minValue,maxValue,precisionStr);break;
-            }
+            if (f.numArrayElements>1) changed = ImGui::SliderScalarN(label,dataType,value,f.numArrayElements,&minValue,&maxValue,precisionStr);
+            else changed = ImGui::SliderScalar(label,dataType,value,&minValue,&maxValue,precisionStr);
         }
         else {
             if (dragSpeed<1.f) dragSpeed = 1.f;
-            switch (f.numArrayElements)    {
-            case 2: changed = ImGui::DragInt2(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            case 3: changed = ImGui::DragInt3(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            case 4: changed = ImGui::DragInt4(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            default: changed = ImGui::DragInt(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            }
+            if (f.numArrayElements>1) changed = ImGui::DragScalarN(label,dataType,value,f.numArrayElements,dragSpeed,&minValue,&maxValue,precisionStr);
+            else changed = ImGui::DragScalar(label,dataType,value,dragSpeed,&minValue,&maxValue,precisionStr);
         }
-        if (changed)    {
-            for (int vl=0;vl<f.numArrayElements;vl++) {
-                *(pField+vl) = (unsigned) value[vl];
-            }
-        }
+        if (changed)    {for (int vl=0;vl<f.numArrayElements;vl++) {*(pField+vl) = (unsigned int) value[vl];}}
     }
         break;
     case FT_INT: {
-        strcpy(precisionStr,"%1.0f");
+        strcpy(precisionStr,"%d");
         const int minValue = (int) f.minValue;
         const int maxValue = (int) f.maxValue;
+        const ImGuiDataType_ dataType = ImGuiDataType_S32;
         int* pField = (int*) f.pdata;
-        int value[4] = {0,0,0,0};
-        for (int vl=0;vl<f.numArrayElements;vl++) {
-            value[vl] = (int) *(pField+vl);
-        }
+        int value[4] = {0,0,0,0};  // TODO: Probably we can remove this hack now that Dear ImGui supports all types
+        for (int vl=0;vl<f.numArrayElements;vl++) {value[vl] = (int) *(pField+vl);}
         if (NodeGraphEditor::UseSlidersInsteadOfDragControls)   {
-            switch (f.numArrayElements)    {
-            case 2: changed = ImGui::SliderInt2(label,value,minValue,maxValue,precisionStr);break;
-            case 3: changed = ImGui::SliderInt3(label,value,minValue,maxValue,precisionStr);break;
-            case 4: changed = ImGui::SliderInt4(label,value,minValue,maxValue,precisionStr);break;
-            default: changed = ImGui::SliderInt(label,value,minValue,maxValue,precisionStr);break;
-            }
+            if (f.numArrayElements>1) changed = ImGui::SliderScalarN(label,dataType,value,f.numArrayElements,&minValue,&maxValue,precisionStr);
+            else changed = ImGui::SliderScalar(label,dataType,value,&minValue,&maxValue,precisionStr);
         }
         else {
             if (dragSpeed<1.f) dragSpeed = 1.f;
-            switch (f.numArrayElements)    {
-            case 2: changed = ImGui::DragInt2(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            case 3: changed = ImGui::DragInt3(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            case 4: changed = ImGui::DragInt4(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            default: changed = ImGui::DragInt(label,value,dragSpeed,minValue,maxValue,precisionStr);break;
-            }
+            if (f.numArrayElements>1) changed = ImGui::DragScalarN(label,dataType,value,f.numArrayElements,dragSpeed,&minValue,&maxValue,precisionStr);
+            else changed = ImGui::DragScalar(label,dataType,value,dragSpeed,&minValue,&maxValue,precisionStr);
         }
-        if (changed)    {
-            for (int vl=0;vl<f.numArrayElements;vl++) {
-                *(pField+vl) = (int) value[vl];
-            }
-        }
+        if (changed)    {for (int vl=0;vl<f.numArrayElements;vl++) {*(pField+vl) = (int) value[vl];}}
     }
         break;
     case FT_BOOL:   {

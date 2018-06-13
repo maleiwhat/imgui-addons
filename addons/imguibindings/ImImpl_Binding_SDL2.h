@@ -7,17 +7,17 @@
 /*static*/ SDL_Window* window = NULL;
 static ImVec2 mousePosScale(1.0f, 1.0f);
 
-static const SDL_SystemCursor sdlCursorIds[ImGuiMouseCursor_Count_+1] = {
+static const SDL_SystemCursor sdlCursorIds[ImGuiMouseCursor_COUNT+1] = {
     SDL_SYSTEM_CURSOR_ARROW,
     SDL_SYSTEM_CURSOR_IBEAM,
-    SDL_SYSTEM_CURSOR_HAND,//SDL_SYSTEM_CURSOR_SIZEALL,      //SDL_SYSTEM_CURSOR_HAND,    // or SDL_SYSTEM_CURSOR_SIZEALL  //ImGuiMouseCursor_Move,                  // Unused by ImGui
+    SDL_SYSTEM_CURSOR_HAND,//SDL_SYSTEM_CURSOR_SIZEALL,      //SDL_SYSTEM_CURSOR_HAND,    // or SDL_SYSTEM_CURSOR_SIZEALL  //ImGuiMouseCursor_ResizeAll,                  // Unused by ImGui
     SDL_SYSTEM_CURSOR_SIZENS,       //ImGuiMouseCursor_ResizeNS,              // Unused by ImGui
     SDL_SYSTEM_CURSOR_SIZEWE,       //ImGuiMouseCursor_ResizeEW,              // Unused by ImGui
     SDL_SYSTEM_CURSOR_SIZENESW,     //ImGuiMouseCursor_ResizeNESW,
     SDL_SYSTEM_CURSOR_SIZENWSE,     //ImGuiMouseCursor_ResizeNWSE,          // Unused by ImGui
     SDL_SYSTEM_CURSOR_ARROW         //,ImGuiMouseCursor_Arrow
 };
-static SDL_Cursor* sdlCursors[ImGuiMouseCursor_Count_+1];
+static SDL_Cursor* sdlCursors[ImGuiMouseCursor_COUNT+1];
 
 // NB: ImGui already provide OS clipboard support for Windows so this isn't needed if you are using Windows only.
 static const char* ImImpl_GetClipboardTextFn(void*)
@@ -75,6 +75,9 @@ static void InitImGui(const ImImpl_InitParams* pOptionalInitParams=NULL)	{
     io.DeltaTime = 1.0f/60.0f;                          // Time elapsed since last frame, in seconds (in this sample app we'll override this every frame because our timestep is variable)
     //io.PixelCenterOffset = 0.0f;                        // Align OpenGL texels
 
+    io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;   // We can honor GetMouseCursor() values
+    io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;    // We can honor io.WantSetMousePos requests (optional, rarely used)
+
     io.KeyMap[ImGuiKey_Tab] = SDLK_TAB;                     // Keyboard mapping. ImGui will use those indices to peek into the io.KeyDown[] array.
     io.KeyMap[ImGuiKey_LeftArrow] = SDL_SCANCODE_LEFT;
     io.KeyMap[ImGuiKey_RightArrow] = SDL_SCANCODE_RIGHT;
@@ -89,6 +92,7 @@ static void InitImGui(const ImImpl_InitParams* pOptionalInitParams=NULL)	{
     io.KeyMap[ImGuiKey_Backspace] = SDLK_BACKSPACE;
     io.KeyMap[ImGuiKey_Enter] = SDLK_RETURN;
     io.KeyMap[ImGuiKey_Escape] = SDLK_ESCAPE;
+    io.KeyMap[ImGuiKey_Space] = SDLK_SPACE;
     io.KeyMap[ImGuiKey_A] = SDLK_a;
     io.KeyMap[ImGuiKey_C] = SDLK_c;
     io.KeyMap[ImGuiKey_V] = SDLK_v;
@@ -96,7 +100,7 @@ static void InitImGui(const ImImpl_InitParams* pOptionalInitParams=NULL)	{
     io.KeyMap[ImGuiKey_Y] = SDLK_y;
     io.KeyMap[ImGuiKey_Z] = SDLK_z;
 
-    io.RenderDrawListsFn = ImImpl_RenderDrawLists;
+    //io.RenderDrawListsFn = ImImpl_RenderDrawLists;
     io.SetClipboardTextFn = ImImpl_SetClipboardTextFn;
     io.GetClipboardTextFn = ImImpl_GetClipboardTextFn;
 #ifdef _MSC_VER
@@ -174,6 +178,13 @@ I think failing in SDL_Init() when a requested subsystem doesn't work properly i
     SDL_GL_CreateContext(window);
 
 
+    // 0 => immediate; 1 => vsync; -1 => vsync if possible, but late swaps happen immediately instead of waiting for the next retrace.
+    if (SDL_GL_SetSwapInterval(-1)==-1) {
+        //fprintf(stderr,"Warning SwapInterval(-1) not supported\n");
+        // It should fall back to 0 if unsupported
+        SDL_GL_SetSwapInterval(1);  // vsync
+    }
+
 #ifdef IMGUI_USE_GLAD
    if(!gladLoadGL()) {
         fprintf(stderr,"Error initializing GLAD!\n");
@@ -226,7 +237,7 @@ static void ImImplMainLoopFrame(void* pDone)	{
         if (oldMustHideCursor!=io.MouseDrawCursor) {
             SDL_ShowCursor(io.MouseDrawCursor?0:1);
             oldMustHideCursor = io.MouseDrawCursor;
-            oldCursor = ImGuiMouseCursor_Count_;
+            oldCursor = ImGuiMouseCursor_COUNT;
         }
         if (!io.MouseDrawCursor) {
             if (oldCursor!=ImGui::GetMouseCursor()) {
@@ -287,10 +298,9 @@ static void ImImplMainLoopFrame(void* pDone)	{
             key&=~SDLK_SCANCODE_MASK;
             // Don't remember what these 3 lines are for... removed because they prevent arrows key to work (TODO: understand what these lines were for).
             // Found these 3 lines here: https://github.com/ocornut/imgui/issues/729
-            /*if (event.key.keysym.sym & (1<<30)) {
+            //if (event.key.keysym.sym & (1<<30)) {
                 //fprintf(stderr,"SDL Highbit remask %x -> %x\n", event.key.keysym.sym, key);
-                key |= 0x100;
-            }*/
+                //key |= 0x100;}
             if (key>=0 && key<512)  io.KeysDown[key] = down;
         }
             break;
@@ -340,10 +350,17 @@ static void ImImplMainLoopFrame(void* pDone)	{
     }
 
     // Setup io.DeltaTime
-    static Uint32  time = SDL_GetTicks();
+    /*static Uint32  time = SDL_GetTicks();
     const Uint32  current_time =  SDL_GetTicks();
     static float deltaTime = (float)(0.001*(double)(current_time - time));
-    deltaTime = (float)(0.001*(double)(current_time - time));
+    deltaTime = (float)(0.001*(double)(current_time - time));*/
+
+    static const Uint64 frequency = SDL_GetPerformanceFrequency();
+    static Uint64 time = SDL_GetPerformanceCounter();
+    const Uint64 current_time = SDL_GetPerformanceCounter();
+    static float deltaTime = 0.f;
+    deltaTime = (float)((double)(current_time - time) / frequency);
+
     if (deltaTime<=0) deltaTime=1.0f/60.0f;
     time = current_time;
 
@@ -351,11 +368,11 @@ static void ImImplMainLoopFrame(void* pDone)	{
     {
         io.DeltaTime = deltaTime;
         if (!gImGuiPaused) {
-            if (io.WantMoveMouse)  {
-                // Set mouse position if requested by io.WantMoveMouse flag (used when io.NavMovesTrue is enabled by user and using directional navigation)
+            if (io.WantSetMousePos)  {
+                // Set mouse position if requested by io.WantSetMousePos flag (used when io.NavMovesTrue is enabled by user and using directional navigation)
                 // SDL_WarpMouseInWindow() and SDL_WarpMouseGlobal()
-                SDL_WarpMouseGlobal((int)io.MousePos.x, (int)io.MousePos.y);
-                //SDL_WarpMouseInWindow(window,(int)io.MousePos.x, (int)io.MousePos.y);
+                //SDL_WarpMouseGlobal((int)io.MousePos.x, (int)io.MousePos.y);  // Wrong!
+                SDL_WarpMouseInWindow(window,(int)io.MousePos.x, (int)io.MousePos.y);
             }
             /*else    {
                 // Get mouse position in screen coordinates (set to -1,-1 if no mouse / on another screen, etc.)
@@ -380,7 +397,7 @@ static void ImImplMainLoopFrame(void* pDone)	{
     static const int numFramesDelay = 12;
     static int curFramesDelay = -1;
     if (!gImGuiPaused)	{
-        gImGuiWereOutsideImGui = !ImGui::IsMouseHoveringAnyWindow() && !ImGui::IsAnyItemActive();
+        gImGuiWereOutsideImGui = !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) && !ImGui::IsAnyItemActive();
         const bool imguiNeedsInputNow = !gImGuiWereOutsideImGui && (io.WantTextInput || io.MouseDelta.x!=0 || io.MouseDelta.y!=0 || io.MouseWheel!=0 || io.MouseWheelH!=0);// || io.MouseDownOwned[0] || io.MouseDownOwned[1] || io.MouseDownOwned[2]);
         if (gImGuiCapturesInput != imguiNeedsInputNow) {
             gImGuiCapturesInput = imguiNeedsInputNow;
@@ -393,6 +410,7 @@ static void ImImplMainLoopFrame(void* pDone)	{
         if (gImGuiWereOutsideImGui) curFramesDelay = -1;
 
         ImGui::Render();
+        ImImpl_RenderDrawLists(ImGui::GetDrawData());
     }
     else {gImGuiWereOutsideImGui=true;curFramesDelay = -1;}
 
@@ -419,11 +437,13 @@ int ImImpl_Main(const ImImpl_InitParams* pOptionalInitParams,int argc, char** ar
 {
     if (!InitBinding(pOptionalInitParams,argc,argv)) return -1;
     // New: create cursors-------------------------------------------
-    for (int i=0,isz=ImGuiMouseCursor_Count_+1;i<isz;i++) {
+    for (int i=0,isz=ImGuiMouseCursor_COUNT+1;i<isz;i++) {
         sdlCursors[i] = SDL_CreateSystemCursor(sdlCursorIds[i]);
     }
     //---------------------------------------------------------------
 
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
     InitImGui(pOptionalInitParams);
     ImGuiIO& io = ImGui::GetIO();           
     
@@ -445,13 +465,13 @@ int ImImpl_Main(const ImImpl_InitParams* pOptionalInitParams,int argc, char** ar
 #	endif //__EMSCRIPTEN__
 
     DestroyGL();
-    ImGui::Shutdown();
+    ImGui::DestroyContext();
     DestroyImGuiFontTexture();
     DestroyImGuiProgram();
     DestroyImGuiBuffer();
 
     // New: delete cursors-------------------------------------------
-    for (int i=0,isz=ImGuiMouseCursor_Count_+1;i<isz;i++) {
+    for (int i=0,isz=ImGuiMouseCursor_COUNT+1;i<isz;i++) {
         SDL_FreeCursor(sdlCursors[i]);
     }
     //---------------------------------------------------------------
